@@ -10,33 +10,38 @@
 #include "uthread.h"
 #include "queue.h"
 
-/* Enum to provide state information. */
+/* Enum to provide state information for TCB's.*/
 enum {
-	RUNNING,
-	READY,
-	BLOCKED,
-	ZOMBIE
+  RUNNING,
+  READY,
+  BLOCKED,
+  ZOMBIE
 };
 
 struct uthread_tcb {
-	uthread_ctx_t* uctx;
-	void* stack_ptr;
-	int state;
+  uthread_ctx_t* uctx;
+  void* stack_ptr;
+  int state;
 };
 
-/* Queue object for storing threads in. */
+/* Queue objects for library to handle. */
+/* Ready queue handles threads that are ready to run. */
 queue_t ready_queue;
+/* Zombie queue handles threads that have exited and need to be deleted. */
 queue_t zombie_queue;
+/* Blocked queue handles threads that are blocked by their semaphores. */
 queue_t blocked_queue;
 
-/* TCB pointer to current thread when dequeued. */
-struct uthread_tcb* previous_thread;
+/* Global TCB pointer to current thread outside of ready queue. */
 struct uthread_tcb* current_thread;
+/* Global TCB pointer to previous thread for use in uthread_yield(). */
+struct uthread_tcb* previous_thread;
+
 
 /*
  * uthread_ctx_t - User-level thread context
  *
- * This type is an opaque data structure type that contains a thread's execution
+ *This type is an opaque data structure type that contains a thread's execution
  * context.
  *
  * Such a context is initialized for the first time when creating a thread with
@@ -45,121 +50,132 @@ struct uthread_tcb* current_thread;
  */
 struct uthread_tcb* uthread_current(void)
 {
-	/* Nonredundant because for user calling. */
-	return(current_thread);
+  /* User function to retrieve the current thread. */
+  return(current_thread);
 }
 
 void uthread_yield(void)
 {
-	/* Stores current thread in a temp variable. */
-	previous_thread = current_thread;
-	previous_thread->state = READY;
+  /* Remembers current thread in temp variable previous_thread. */
+  previous_thread = current_thread;
+  previous_thread->state = READY;
 
-	/* Enqueue previous head at end of queue. */
-	queue_enqueue(ready_queue, (void*)previous_thread);
+  /* Enqueues previous_thread at tail of ready queue. */
+  queue_enqueue(ready_queue, (void*)previous_thread);
 
-	/* Dequeues new head into current_thread. */
-	queue_dequeue(ready_queue, (void**)(&current_thread));
-	current_thread->state = RUNNING;
+  /* Dequeues new head into current_thread. */
+  queue_dequeue(ready_queue, (void**)(&current_thread));
+  current_thread->state = RUNNING;
 
-	/* Switches context from old thread to new thread*/
-	uthread_ctx_switch(previous_thread->uctx, current_thread->uctx);
+  /* Switches context from old thread to new thread. */
+  uthread_ctx_switch(previous_thread->uctx, current_thread->uctx);
 }
 
 void uthread_exit(void)
 {
-	/* Stores current thread in a temp variable. */
-	previous_thread = current_thread;
-	previous_thread->state = ZOMBIE;
+  /* Remembers current thread in temp variable previous_thread. */
+  previous_thread = current_thread;
+  previous_thread->state = ZOMBIE;
 
-	/* Enqueue previous head into zombie queue. */
-	queue_enqueue(zombie_queue, (void*)previous_thread);
+  /* Enqueue previous_thread at tail of zombie queue. */
+  queue_enqueue(zombie_queue, (void*)previous_thread);
 
-	/* Dequeues new head into current_thread. */
-	queue_dequeue(ready_queue, (void**)(&current_thread));
-	current_thread->state = RUNNING;
+  /* Dequeues new head into current_thread. */
+  queue_dequeue(ready_queue, (void**)(&current_thread));
+  current_thread->state = RUNNING;
 
-	/* Switches context from old thread to new thread*/
-	uthread_ctx_switch(previous_thread->uctx, current_thread->uctx);
+  /* Switches context from old thread to new thread. */
+  uthread_ctx_switch(previous_thread->uctx, current_thread->uctx);
 }
 
 int uthread_create(uthread_func_t func, void* arg)
 {
-	/* Malloc for New_thread_TCB, create space for stack, and set state*/
-	struct uthread_tcb* new_thread = (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
-	new_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
-	new_thread->stack_ptr = uthread_ctx_alloc_stack();
-	new_thread->state = READY;
+  /* Malloc for New_thread_TCB, create space for stack, and set state. */
+  struct uthread_tcb* new_thread =
+    (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
+  new_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
+  new_thread->stack_ptr = uthread_ctx_alloc_stack();
+  new_thread->state = READY;
 
-	uthread_ctx_init(new_thread->uctx, new_thread->stack_ptr, func, arg);
+  /* Initialize new context object (bootstrap() pauses before execution). */
+  uthread_ctx_init(new_thread->uctx, new_thread->stack_ptr, func, arg);
 
-	queue_enqueue(ready_queue, (void*)new_thread);
-	return(0);
+  /* New thread is enqueued at end of ready queue. */
+  queue_enqueue(ready_queue, (void*)new_thread);
+  return(0);
 }
 
 int uthread_run(bool preempt, uthread_func_t func, void* arg)
 {
-	preempt = !preempt;
-	/* Create queue at queue pointer(will exist for all future function calls) */
-	ready_queue = queue_create();
-	zombie_queue = queue_create();
-	blocked_queue = queue_create();
+  /* REMOVE ME. */
+  preempt = !preempt;
+  /* Allocate space for all global queues to be handled by library. */
+  ready_queue = queue_create();
+  zombie_queue = queue_create();
+  blocked_queue = queue_create();
 
-	/* Mallocing for current and previous threads. */
-	previous_thread = (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
-	previous_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
-	previous_thread->stack_ptr = uthread_ctx_alloc_stack();
+  /* Mallocing for current and previous thread global TCB pointers. */
+  previous_thread = (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
+  previous_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
+  previous_thread->stack_ptr = uthread_ctx_alloc_stack();
 
-	current_thread = (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
-	current_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
-	current_thread->stack_ptr = uthread_ctx_alloc_stack();
+  current_thread = (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
+  current_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
+  current_thread->stack_ptr = uthread_ctx_alloc_stack();
 
-	/* Malloc for Idle_thread_TCB, create space for stack, and set state*/
-	struct uthread_tcb* idle_thread = (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
-	idle_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
-	idle_thread->stack_ptr = uthread_ctx_alloc_stack();
-	idle_thread->state = READY;
+  /* Malloc for Idle_thread_TCB, create space for stack, and set state*/
+  struct uthread_tcb* idle_thread = 
+      (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
+  idle_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
+  idle_thread->stack_ptr = uthread_ctx_alloc_stack();
+  idle_thread->state = READY;
 
-	/* Idle Thread enqueued in queue. */
-	current_thread = idle_thread;
+  /* Idle thread initialized as current thread. */
+  current_thread = idle_thread;
 
+  /* Initial thread created and queued within ready queue. */
+  uthread_create(func, arg);
 
+  /* The only time program returns to infinite loop will be when idle or deleting*/
+  while (queue_length(ready_queue) > 0)
+    uthread_yield();
 
-	/* Creates Initial Thread */
-	uthread_create(func, arg);
+  /* Frees allocated memory used by queues. */
+  queue_iterate(ready_queue, (void*)queue_delete);
+  queue_destroy(ready_queue);
 
-	/* The only time program returns to infinite loop will be when idle or deleting*/
-	while (queue_length(ready_queue) > 0)
-		uthread_yield();
+  queue_iterate(zombie_queue, (void*)queue_delete);
+  queue_destroy(zombie_queue);
 
-	/* Frees allocated memory. */
-	//queue_iterate(ready_queue, queue_delete);
-	//queue_destroy(ready_queue);
-
-	//queue_iterate(zombie_queue, queue_delete);
-	//queue_destroy(zombie_queue);
-	return(0);
+  queue_iterate(blocked_queue, (void*)queue_delete);
+  queue_destroy(blocked_queue);
+  return(0);
 }
 
 void uthread_block(void)
 {
-	struct uthread_tcb* blocked_thread = uthread_current();
-	blocked_thread->state = BLOCKED;
-	queue_enqueue(blocked_queue, (void*)blocked_thread);
+  /* Initializes blocked thread from current_thread. */
+  struct uthread_tcb* blocked_thread = current_thread;
+  /* Sets blocked thread state and enqueues into blocked queue. */
+  blocked_thread->state = BLOCKED;
+  queue_enqueue(blocked_queue, (void*)blocked_thread);
 
-	queue_dequeue(ready_queue, (void**)(&current_thread));
-	current_thread->state = RUNNING;
+  /* Reassigns current_thread as the next ready thread. */
+  queue_dequeue(ready_queue, (void**)(&current_thread));
+  current_thread->state = RUNNING;
 
-	/* Switches context from old thread to new thread*/
-	uthread_ctx_switch(blocked_thread->uctx, current_thread->uctx);
+  /* Switches context from blocked thread to new current thread*/
+  uthread_ctx_switch(blocked_thread->uctx, current_thread->uctx);
 }
 
 void uthread_unblock(struct uthread_tcb* uthread)
 {
-	queue_delete(blocked_queue, (void*)uthread);
+  /* Deletes the newly readied thread from blocked queue. */
+  queue_delete(blocked_queue, (void*)uthread);
 
-	queue_enqueue(ready_queue, (void*)uthread);
-	uthread->state = READY;
+  /* Enqueues the thread in the ready queue. */
+  queue_enqueue(ready_queue, (void*)uthread);
+  uthread->state = READY;
 }
 
 
