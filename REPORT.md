@@ -1,6 +1,11 @@
-Phase 1: queue API
+Authors: Bradley Manzo, Kent Cassidy
+Date: November 3, 2022
 
-The queue is required to be FIFO, and (almost) all operations must be O(1).
+#Report 1
+
+##Phase 1: Queue API
+
+     The queue is required to be FIFO, and (almost) all operations must be O(1).
 Based on this requirement, we decided to use a linked list, where the data
 need not be recopied and transfered with every adjustment. This serves us
 well as datapoints are stored in the same address space from initialization
@@ -11,10 +16,52 @@ standard series of node structs within a queue struct as taught in ECS36C.
 Each node holds a void pointer to represent any possible given value. This
 pointer does not need any extra memory allocated towards it, as the inputted
 structures already exist when enqueued.
+     The makefile we wrote for the libuthread files works by compiling each .c
+file into a .o, and then compiling all .o files into a .a static library. The
+advantage of which being that all object files are linked together without
+having to recompile every object file upon every single modification. Some rules
+that we added include a generic rule for compiling .c files into .o files by
+implementing a generic list of targets and objects.
 
-Phase 3: semaphore API
+##Phase 2: Uthread API
 
-Initially, our semaphore structure contained solely an unsigned int. This was
+    The next step to implementing the thread library is to create a structure in
+which to schedule and execute threads. This API greatly benefits from the above
+Queue API, instantiating three queue objects: the ready, blocked, and zombie
+queues to handle ready, blocked, and zombie threads respectively. These threads
+are allocated space in memory with the idle thread, which is instantiated within
+uthread_run(). The function then points a global pointer towards the idle thread
+to exist outside of the ready queue and remembered across function calls, and to
+be available to the user through uthread_current(). The initial thread is then
+created and enqueued as the first element in the ready thread. Our uthread_
+create function is responsible for allocating memory for each new thread and
+initializing it using uthread_ctx_init(). This then makes the context, and the
+uthread_ctx_bootstrap function pauses before executing and enqueues the thread
+into the ready queue. Since all user created processes must be created within
+this initial thread, the only thread returning to idle is idle itself. When idle
+is made into the current context it yields to other threads in the queue unless
+it is alone. Our uthread_yield function is called inside of idle and works by
+storing the current_thread inside of a separate global TCB pointer previous
+thread. This previous thread is then dequeued and enqueued in the ready queue.
+The head of the ready queue is then dequeued into the current thread pointer.
+This preserves the structure of the queue and ensures the current thread pointer
+is always accurate. When a program completes its execution without yielding, it
+is dequeued but is instead enqueued into our zombie queue to be destroyed upon
+completion of uthread_run(). When idle is the only thread left in the ready
+queue, it exists at current_thread and queue_length(ready_queue) is zero. This is
+cause to exit the loop and destroy the leftover queues by passing queue_delete()
+into the queue_iterate function. Nailing the structure of this API was a
+challenge as our first implementation required access to queue internals, eg.
+queue->head->next->value which is unintended behavior for queue.c. Our next
+attempt involved passing a custom get_head function to iterate and retrieving
+the head this way, maintaining the current_thread within the head of ready
+queue. However we settled on having current_thread exist outside as a global
+pointer in order to preserve the integrity of the library and to minimize
+potential errors involved with such a system.
+
+##Phase 3: Semaphore API
+
+   Initially, our semaphore structure contained solely an unsigned int. This was
 to represent the amount of available resources in any given semaphore, which
 would never fall below zero (this way, there are twice as many available
 resources, assuming the request wants more than the int cap).
