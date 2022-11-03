@@ -9,13 +9,16 @@ Date: November 3, 2022
 Based on this requirement, we decided to use a linked list, where the data
 need not be recopied and transfered with every adjustment. This serves us
 well as datapoints are stored in the same address space from initialization
-until the program ends. Rather than doubly linked, we used a singly linked
-list, as there is no need to traverse backwards. As we prioritize FIFO,
-only the head is truly read from and removed. To implement this, we used a
-standard series of node structs within a queue struct as taught in ECS36C.
-Each node holds a void pointer to represent any possible given value. This
-pointer does not need any extra memory allocated towards it, as the inputted
-structures already exist when enqueued.
+until the program ends. Initially we had thought to use a singly linked
+list, as there is no need to traverse backwards - as we prioritize FIFO,
+usually only the head is truly read from and removed. We ended up creating
+a doubly linked list - when deleting a node within any queue, the surrounding
+elements must be rejoined. To do this, we need to keep track of the prev in
+addition to next. To implement the linked list, we used a standard series of
+node structs (holding value, prev, next) within a queue struct as taught in
+ECS36C. Each node holds a void pointer to represent any possible given value.
+This pointer does not need any extra memory allocated towards it, as the
+inputted structures already exist when enqueued.
      The makefile we wrote for the libuthread files works by compiling each .c
 file into a .o, and then compiling all .o files into a .a static library. The
 advantage of which being that all object files are linked together without
