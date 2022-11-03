@@ -96,9 +96,14 @@ int uthread_create(uthread_func_t func, void* arg)
   new_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
   new_thread->stack_ptr = uthread_ctx_alloc_stack();
   new_thread->state = READY;
-
+  if (!new_thread || !(new_thread->uctx) || !(new_thread->stack_ptr))
+    return(-1);
   /* Initialize new context object (bootstrap() pauses before execution). */
-  uthread_ctx_init(new_thread->uctx, new_thread->stack_ptr, func, arg);
+  if (uthread_ctx_init(new_thread->uctx, new_thread->stack_ptr,
+    func, arg) == -1)
+  {
+    return(-1);
+  }
 
   /* New thread is enqueued at end of ready queue. */
   queue_enqueue(ready_queue, (void*)new_thread);
@@ -113,16 +118,28 @@ int uthread_run(bool preempt, uthread_func_t func, void* arg)
   ready_queue = queue_create();
   zombie_queue = queue_create();
   blocked_queue = queue_create();
+  if ((!ready_queue) || (!zombie_queue) || (!blocked_queue))
+    return(-1);
 
   /* Mallocing for current and previous thread global TCB pointers. */
   previous_thread = (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
   previous_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
   previous_thread->stack_ptr = uthread_ctx_alloc_stack();
-
+  
+  if (!previous_thread || !(previous_thread->uctx) || 
+    !(previous_thread->stack_ptr))
+  {
+    return(-1);
+  }
   current_thread = (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
   current_thread->uctx = (uthread_ctx_t*)malloc(sizeof(uthread_ctx_t));
   current_thread->stack_ptr = uthread_ctx_alloc_stack();
 
+  if (!current_thread || !(current_thread->uctx) ||
+      !(current_thread->stack_ptr))
+  {
+      return(-1);
+  }
   /* Malloc for Idle_thread_TCB, create space for stack, and set state*/
   struct uthread_tcb* idle_thread = 
       (struct uthread_tcb*)malloc(sizeof(struct uthread_tcb));
@@ -130,11 +147,17 @@ int uthread_run(bool preempt, uthread_func_t func, void* arg)
   idle_thread->stack_ptr = uthread_ctx_alloc_stack();
   idle_thread->state = READY;
 
+  if (!idle_thread || !(idle_thread->uctx) ||
+      !(idle_thread->stack_ptr))
+  {
+      return(-1);
+  }
   /* Idle thread initialized as current thread. */
   current_thread = idle_thread;
 
   /* Initial thread created and queued within ready queue. */
-  uthread_create(func, arg);
+  if(uthread_create(func, arg) == -1)
+      return(-1);
 
   /* The only time program returns to infinite loop will be when idle or deleting*/
   while (queue_length(ready_queue) > 0)
