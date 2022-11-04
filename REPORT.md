@@ -2,8 +2,8 @@ Authors: Bradley Manzo, Kent Cassidy
 Date: November 3, 2022
 
 #Report 2
-     
-	 In order to implement a user-level thread library for linux, we must
+    
+In order to implement a user-level thread library for linux, we must
 first construct a queue ADT to store threads in, develop a set of functions to
 schedule said threads, a semaphore in order to manage resources usage, and a
 signal alarm to enable preemption of lengthy threads as well as shield critical
@@ -12,7 +12,7 @@ file to reduce compiling time and simplify dependencies between them.
 
 ##Phase 1: Queue API
 
-     The queue is required to be FIFO, and (almost) all operations must be O(1).
+The queue is required to be FIFO, and (almost) all operations must be O(1).
 Based on this requirement, we decided to use a linked list, where the data
 need not be recopied and transfered with every adjustment. This serves us
 well as datapoints are stored in the same address space from initialization
@@ -26,7 +26,7 @@ node structs (holding value, prev, next) within a queue struct as taught in
 ECS36C. Each node holds a void pointer to represent any possible given value.
 This pointer does not need any extra memory allocated towards it, as the
 inputted structures already exist when enqueued.
-     The makefile we wrote for the libuthread files works by compiling each .c
+The makefile we wrote for the libuthread files works by compiling each .c
 file into a .o, and then compiling all .o files into a .a static library. The
 advantage of which being that all object files are linked together without
 having to recompile every object file upon every single modification. Some rules
@@ -37,7 +37,7 @@ clean rule similar to that of our p1, and a conditional variable to toggle the
 
 ##Phase 2: Uthread API
 
-    The next step to implementing the thread library is to create a structure in
+The next step to implementing the thread library is to create a structure in
 which to schedule and execute threads. This API greatly benefits from the above
 Queue API, instantiating three queue objects: the ready, blocked, and zombie
 queues to handle ready, blocked, and zombie threads respectively. These threads
@@ -73,15 +73,16 @@ potential errors involved with such a system.
 
 ##Phase 3: Semaphore API
 
-   Initially, our semaphore structure contained solely an unsigned int. This was
+Initially, our semaphore structure contained solely an unsigned int. This was
 to represent the amount of available resources in any given semaphore, which
 would never fall below zero (this way, there are twice as many available
 resources, assuming the request wants more than the int cap).
-     sem_create() and sem_destroy() are fairly straightforward with malloc() and
+sem_create() and sem_destroy() are fairly straightforward with malloc() and
 free(). sem_down() is designed to first check if a request should be blocked
 before decrementing its resource. Inversing that process, sem_up() increments
 its resource before unblocking.
-     In order to implement blocking and unblocking, we created a global queue in
+ 
+In order to implement blocking and unblocking, we created a global queue in
 parallel to the ready queue to offshore the blocked threads. This way,
 the uthread_yield() function only needs to concern itself with the next
 available thread without constantly checking its status. This implementation
@@ -102,7 +103,7 @@ blocked_queue, as its head is not guaranteed to be the requested thread.
 
 ## Phase 4 Preemption
 
-     In order to enable preemption within out user-thread library, we attempted
+In order to enable preemption within out user-thread library, we attempted
 to implement an alarm within a signal handler rather than blocking the signal
 using a mask. With our system, we would've paused the timer when disabling
 preempt, and restarted it by enabling preempts. However we were unable to get
@@ -110,7 +111,7 @@ the signal to work as intended. We have included our implementation, but despite
 making a tester file, we cannot speak to the success of our preempt.c implement.
 
 ## Closing Remarks
-     While we were unable to complete phase 4, we were able to solidify our
+While we were unable to complete phase 4, we were able to solidify our
 understanding of linked lists, while building a greater understanding of
 concepts like user-level threads and semaphores. In addition we learned how
 static libraries can be compiled using intelligently designed makefiles.
