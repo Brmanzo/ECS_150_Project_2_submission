@@ -104,11 +104,20 @@ blocked_queue, as its head is not guaranteed to be the requested thread.
 ## Phase 4 Preemption
 
 In order to enable preemption within out user-thread library, we attempted
-to implement an alarm within a signal handler rather than blocking the signal
-using a mask. With our system, we would've paused the timer when disabling
-preempt, and restarted it by enabling preempts. However we were unable to get
-the signal to work as intended. We have included our implementation, but despite
-making a tester file, we cannot speak to the success of our preempt.c implement.
+to implement an itimer (that fires only once) within a signal handler,
+rather than blocking a constant signal using a mask. With our system, instead
+of pausing the timer, we would let it die (call signal handler). Then, the
+signal handler would refuse to reinitialize a timer until the global disable
+flag is switched off. Though we learned about signal masking before this
+plan was brewed, we decided to follow the advice of chapter 24.7.7 within
+the GNU Lib Manual ("Remembering Signals"). To reenable a preempt, we would
+disable the flag then start another cycle of initializing the timer, then
+letting it die.
+Unfortunately, we were unable to get the itimer signal to work as intended.
+We are stumped on why the signals did not propagate, and setitimer gave an
+expected return value.
+We have included our implementation, but despite making a tester file, we
+cannot speak to the success of our preempt.c implement.
 
 ## Closing Remarks
 While we were unable to complete phase 4, we were able to solidify our
