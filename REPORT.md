@@ -1,7 +1,7 @@
-Authors: Bradley Manzo, Kent Cassidy
+Authors: Kent Cassidy, Bradley Manzo
 Date: November 3, 2022
 
-#Report 2
+# Report 2
     
 In order to implement a user-level thread library for linux, we must
 first construct a queue ADT to store threads in, develop a set of functions to
@@ -10,7 +10,7 @@ signal alarm to enable preemption of lengthy threads as well as shield critical
 sections of code. These separate components are facilitated by a static library
 file to reduce compiling time and simplify dependencies between them.
 
-##Phase 1: Queue API
+## Phase 1: Queue API
 
 The queue is required to be FIFO, and (almost) all operations must be O(1).
 Based on this requirement, we decided to use a linked list, where the data
@@ -35,7 +35,7 @@ implementing a generic list of targets and objects. Another rule we added was a
 clean rule similar to that of our p1, and a conditional variable to toggle the
 -g and -O2 flags to choose either debugging or performance.
 
-##Phase 2: Uthread API
+## Phase 2: Uthread API
 
 The next step to implementing the thread library is to create a structure in
 which to schedule and execute threads. This API greatly benefits from the above
@@ -71,7 +71,7 @@ queue. However we settled on having current_thread exist outside as a global
 pointer in order to preserve the integrity of the library and to minimize
 potential errors involved with such a system.
 
-##Phase 3: Semaphore API
+## Phase 3: Semaphore API
 
 Initially, our semaphore structure contained solely an unsigned int. This was
 to represent the amount of available resources in any given semaphore, which
