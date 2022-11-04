@@ -100,4 +100,20 @@ uthread_unblock() performs in the inverse order of block, but there is no
 context switching. Unblock also deletes a specific tcb from within
 blocked_queue, as its head is not guaranteed to be the requested thread.
 
+## Phase 4 Preemption
+
+     In order to enable preemption within out user-thread library, we attempted
+to implement an alarm within a signal handler rather than blocking the signal
+using a mask. With our system, we would've paused the timer when disabling
+preempt, and restarted it by enabling preempts. However we were unable to get
+the signal to work as intended. We have included our implementation, but despite
+making a tester file, we cannot speak to the success of our preempt.c implement.
+
 ## Closing Remarks
+     While we were unable to complete phase 4, we were able to solidify our
+understanding of linked lists, while building a greater understanding of
+concepts like user-level threads and semaphores. In addition we learned how
+static libraries can be compiled using intelligently designed makefiles.
+While our preempt.c may not work, we believe that we understand the
+importance of such a system on any thread scheduling system and after working
+it out on paper, we still believe that our implementation could've worked.
