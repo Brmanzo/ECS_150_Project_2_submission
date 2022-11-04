@@ -20,7 +20,7 @@ endif
 CFLAGS	+= -MMD
 
 # Application objects to compile
-OBJS	:=	uthread.o	queue.o	context.o	sem.o
+OBJS	:=	uthread.o	queue.o	context.o	sem.o	preempt.o
 
 # Include dependencies
 DEPS := $(patsubst %.o,%.d,$(OBJS))
