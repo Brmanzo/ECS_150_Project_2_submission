@@ -15,23 +15,41 @@
  */
 #define HZ 100
 
+int disable_flag = 0; //GNU Lib Manual 24.7.7
+
+void sig_handler (int signum) {
+	if (disable_flag) {
+		return;
+	} else {
+		alarm(1/HZ);
+		uthread_yield();
+	}
+}
+
 void preempt_disable(void)
 {
-	/* TODO Phase 4 */
+	disable_flag = 1;
 }
 
 void preempt_enable(void)
 {
-	/* TODO Phase 4 */
+	disable_flag = 0;
+	alarm(1/HZ);
 }
 
 void preempt_start(bool preempt)
 {
-	/* TODO Phase 4 */
+	if (!preempt) {
+		return;
+	} else {
+		signal(SIGVTALRM, sighandler);
+		alarm(1/HZ);
+	}
 }
 
 void preempt_stop(void)
 {
-	/* TODO Phase 4 */
+	preempt_disable();
+	signal(SIGVTALRM, SIG_DFL);
 }
 
