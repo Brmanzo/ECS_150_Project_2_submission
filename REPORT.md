@@ -1,7 +1,14 @@
 Authors: Bradley Manzo, Kent Cassidy
 Date: November 3, 2022
 
-#Report 1
+#Report 2
+     
+	 In order to implement a user-level thread library for linux, we must
+first construct a queue ADT to store threads in, develop a set of functions to
+schedule said threads, a semaphore in order to manage resources usage, and a
+signal alarm to enable preemption of lengthy threads as well as shield critical
+sections of code. These separate components are facilitated by a static library
+file to reduce compiling time and simplify dependencies between them.
 
 ##Phase 1: Queue API
 
@@ -24,7 +31,9 @@ file into a .o, and then compiling all .o files into a .a static library. The
 advantage of which being that all object files are linked together without
 having to recompile every object file upon every single modification. Some rules
 that we added include a generic rule for compiling .c files into .o files by
-implementing a generic list of targets and objects.
+implementing a generic list of targets and objects. Another rule we added was a
+clean rule similar to that of our p1, and a conditional variable to toggle the
+-g and -O2 flags to choose either debugging or performance.
 
 ##Phase 2: Uthread API
 
@@ -42,7 +51,7 @@ initializing it using uthread_ctx_init(). This then makes the context, and the
 uthread_ctx_bootstrap function pauses before executing and enqueues the thread
 into the ready queue. Since all user created processes must be created within
 this initial thread, the only thread returning to idle is idle itself. When idle
-is made into the current context it yields to other threads in the queue unless
+becomes the current thread, it yields to other threads in the queue unless
 it is alone. Our uthread_yield function is called inside of idle and works by
 storing the current_thread inside of a separate global TCB pointer previous
 thread. This previous thread is then dequeued and enqueued in the ready queue.
@@ -51,8 +60,8 @@ This preserves the structure of the queue and ensures the current thread pointer
 is always accurate. When a program completes its execution without yielding, it
 is dequeued but is instead enqueued into our zombie queue to be destroyed upon
 completion of uthread_run(). When idle is the only thread left in the ready
-queue, it exists at current_thread and queue_length(ready_queue) is zero. This is
-cause to exit the loop and destroy the leftover queues by passing queue_delete()
+queue, it exists at current_thread and queue_length(ready_queue) is zero. This
+is cause to exit the loop and destroy the leftover queues by passing queuedelete
 into the queue_iterate function. Nailing the structure of this API was a
 challenge as our first implementation required access to queue internals, eg.
 queue->head->next->value which is unintended behavior for queue.c. Our next
@@ -68,12 +77,12 @@ potential errors involved with such a system.
 to represent the amount of available resources in any given semaphore, which
 would never fall below zero (this way, there are twice as many available
 resources, assuming the request wants more than the int cap).
-sem_create() and sem_destroy() are fairly straightforward with malloc() and
+     sem_create() and sem_destroy() are fairly straightforward with malloc() and
 free(). sem_down() is designed to first check if a request should be blocked
 before decrementing its resource. Inversing that process, sem_up() increments
 its resource before unblocking.
-In order to implement blocking and unblocking, we created a global queue in
-parallel to the ready queue to offshore the designated threads. This way,
+     In order to implement blocking and unblocking, we created a global queue in
+parallel to the ready queue to offshore the blocked threads. This way,
 the uthread_yield() function only needs to concern itself with the next
 available thread without constantly checking its status. This implementation
 comes with a fault in that the general blocked queue doesn't remember the
@@ -90,3 +99,5 @@ between blocked and ready queue, then context switches to run the new thread.
 uthread_unblock() performs in the inverse order of block, but there is no
 context switching. Unblock also deletes a specific tcb from within
 blocked_queue, as its head is not guaranteed to be the requested thread.
+
+## Closing Remarks
