@@ -16,8 +16,10 @@
 #define HZ 100
 
 int disable_flag = 0; //GNU Lib Manual 24.7.7
+struct sigaction sig_setup
+sigset_t block_mask
 
-void sig_handler (int signum) {
+void sig_handler () {
 	if (disable_flag) {
 		return;
 	} else {
@@ -42,7 +44,11 @@ void preempt_start(bool preempt)
 	if (!preempt) {
 		return;
 	} else {
-		signal(SIGVTALRM, sighandler);
+		sigemptyset(&block_mask);
+		sig_setup.sa_handler = sig_handler; //
+		sig_setup.sa_mask = block_mask;
+		sig_setup.sa_flags = 0;
+		sigaction(SIGVTALRM, &sig_setup, NULL);
 		alarm(1/HZ);
 	}
 }
